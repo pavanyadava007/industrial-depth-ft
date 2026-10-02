@@ -10,11 +10,24 @@ peft, onnxruntime-gpu. Data: MVTec 3D-AD, all 10 categories. Numbers below are g
 | job | wall minutes (NVIDIA L4 queue, one job at a time) |
 |---|---|
 | baselines | 0.7 |
-| ft_B_full | 10.3 |
-| ft_B_head | 6.6 |
-| ft_B_lora | 10.0 |
-| ft_C_n10_s0 | 10.2 |
-| ft_C_n10_s1 | 10.2 |
+| export_onnx | 0.2 |
+| ft_B_full | 11.6 |
+| ft_B_head | 7.7 |
+| ft_B_lora | 11.3 |
+| ft_C_n10_s0 | 11.4 |
+| ft_C_n10_s1 | 11.3 |
+| ft_C_n10_s2 | 11.4 |
+| ft_C_n200_s0 | 11.2 |
+| ft_C_n50_s0 | 11.4 |
+| ft_C_nall_s1 | 11.4 |
+| ft_C_nall_s2 | 11.6 |
+| ft_D_seen_s0 | 11.2 |
+| ft_D_seen_s1 | 11.3 |
+| ft_D_seen_s2 | 11.4 |
+| ft_S_synth_only | 11.4 |
+| ft_S_synth_real50_s0 | 11.4 |
+| ft_S_synth_real_all | 11.6 |
+| quality | 3.0 |
 | zs_dav2_metric_indoor_large | 3.6 |
 | zs_dav2_metric_indoor_small | 0.7 |
 | zs_dav2_metric_outdoor_large | 3.9 |
@@ -22,9 +35,65 @@ peft, onnxruntime-gpu. Data: MVTec 3D-AD, all 10 categories. Numbers below are g
 | zs_depth_pro | 12.3 |
 | zs_moge2 | 4.3 |
 
-Total queue wall time: 1.23 h.
+Total queue wall time: 3.47 h.
 <!-- RUNTIME:END -->
 
 ## What ran
 
-STATUS_PLACEHOLDER
+- Environment: uv venv with Python 3.10, torch 2.7.1+cu126, transformers 5.x (Depth Anything V2 through
+  AutoModelForDepthEstimation), peft (LoRA), onnx + onnxruntime-gpu 1.23 (CUDA execution provider), Depth Pro from
+  apple/ml-depth-pro (git), MoGe-2 from microsoft/MoGe (git, --no-deps, as in depth3d-lab). Weights from the shared
+  Hugging Face cache; DA-V2 Small, metric indoor Small and metric indoor Large were downloaded once. Nothing is
+  committed except code, metrics, small figures and logs.
+- Data: all 10 MVTec 3D-AD categories, streamed per category from the official download page (14.2 GB of archives,
+  never stored), converted to 400 x 400 npz (2.5 GB). Non-square categories (rope 400x900, tire 800x600) are
+  centre-cropped to a square. Intrinsics fitted per image from the point maps (largest RMS residual of the linear
+  fit is in data/proc/<category>/prep_summary.json). cookie was converted twice: the first conversion used a
+  nearest-neighbour fallback for its 500 px samples; it was re-downloaded and converted with the valid-aware area
+  resampling before any experiment ran.
+- A: six models (eight variants: Depth Pro and MoGe-2 each with their own focal estimate and with the true focal
+  from the point map, computed from one forward pass) plus two reference baselines on all 1,197 test images.
+- B: three fine-tuning configurations of DA-V2 Small, 3000 steps each, seed 0; selection by validation RMSE.
+- C: the selected configuration with N = 10 (3 seeds), 50 (1 seed), 200 (1 seed) and all 2,656 images (3 seeds,
+  seed 0 is the B run). N images are drawn round-robin over the 10 categories. Every run has the same 3000-step
+  budget, so the small-N runs see the same images many times; the validation split picks the checkpoint.
+- D: the selected configuration trained on the 7 seen categories only (all their training images, 3 seeds), tested
+  on all test images; seen and held-out categories are reported separately.
+- Synthetic track: 1,000 + 100 images rendered with pyrender (EGL, headless) and three runs (synthetic only,
+  synthetic + 50 real, synthetic + all real), seed 0 each, selected on the real validation split.
+- E: quality analysis on the cached test predictions of the selected B model, the seen-only D model (seed 0) and
+  four zero-shot models.
+- F: ONNX export of the selected B model, parity and latency.
+
+## Problems found and fixed during the build
+
+- The first set of fine-tuning runs (B and three C runs) ran the whole network under bf16 autocast, including the
+  metric head (sigmoid x 1 m). In bf16 that output is quantised to 3.9 mm steps between 0.5 and 1 m, which showed
+  up as terraces in the error maps. The head now runs in fp32 (`idft/train.py: fp32_head`, unit test
+  `test_head_output_not_quantised_under_bf16`), every fine-tuning run was repeated, and the invalid results are
+  kept for transparency in `logs/old_bf16_head/` (not used by any table).
+- The zero-shot predictions are cached as float16 (step 0.49 mm between 0.5 and 1 m, 0.98 mm between 1 and 2 m);
+  only Experiment E and the figures read that cache, the Experiment A tables are computed from the full-precision
+  outputs. Fine-tuned predictions are cached as float32.
+- The first version of the defect relief analysis used a 15 px median filter and took more than 20 minutes per
+  model on the CPU; it was replaced by a valid-pixel box mean before any result was recorded.
+
+## What did not run, and why
+
+- Fine-tuning seeds: one seed for N = 50 and N = 200 in C, one seed for the B configurations and the synthetic
+  runs, because the first (invalid) fine-tuning runs used part of the GPU budget (their runtimes are in
+  logs/old_bf16_head/runtime_*.json).
+- Longer schedules: every fine-tuning run had its best validation score at or near the last step, so the models are
+  probably not converged at 3000 steps; longer runs were not tried.
+- Initialising the fine-tuning from the DA-V2 metric indoor Small checkpoint instead of the relative Small
+  checkpoint: not run.
+- TensorRT: not installed or run; ONNX Runtime with the CUDA execution provider was used instead.
+- Other zero-shot models (UniDepthV2, Metric3Dv2, Marigold): not run.
+
+## Caveats
+
+- All timings are from the NVIDIA L4 in this machine, one job at a time. The 1,100-image synthetic render (its duration is in
+  results/synth_render.json) shared the GPU with the first B_head run of the invalid set, not with any reported run.
+- The zero-shot latency column includes each library's own preprocessing and post-processing for one 400 x 400
+  image (Depth Pro: fp16; MoGe-2: fp16 autocast; DA-V2 through transformers: fp32), so it compares the models as
+  shipped, not optimised.

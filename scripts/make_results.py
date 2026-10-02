@@ -205,13 +205,15 @@ def table_d(zs) -> str:
         return cells
 
     if dr:
-        rows.append(line(f"fine-tuned on 7 seen categories ({len(dr)} seeds)", dr))
+        rows.append(line(f"fine-tuned on 7 seen categories ({len(dr)} seed{'s' if len(dr) > 1 else ''})", dr))
     if ind:
         rows.append(line("fine-tuned on all 10 categories (in-domain reference, seed 0)", [ind]))
     for v in ("baseline_train_mean_map", "dav2_small_rel", "moge2", "moge2_gtfocal", "depth_pro", "depth_pro_gtfocal",
               "dav2_metric_indoor_large"):
         if v in zs:
-            rows.append(line(f"zero-shot / reference: {LABEL[v]}", [zs[v]]))
+            lab = (f"reference: {LABEL[v]} (uses each category's own training depth, so not held out)"
+                   if v == "baseline_train_mean_map" else f"zero-shot: {LABEL[v]}")
+            rows.append(line(lab, [zs[v]]))
     return table(["model", "seen raw RMSE mm", "seen aligned RMSE mm", "held-out raw RMSE mm",
                   "held-out aligned RMSE mm"], rows)
 

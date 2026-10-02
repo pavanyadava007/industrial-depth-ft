@@ -1,0 +1,42 @@
+{
+ "experiment": "F_export",
+ "ckpt": "data/ckpt/B_full.pt",
+ "variant": "B_full",
+ "opset": 17,
+ "input_shape": [
+  1,
+  3,
+  518,
+  518
+ ],
+ "onnx_mb": 99.077608,
+ "export_s": 1.5193729400634766,
+ "ort_version": "1.23.2",
+ "ort_providers": [
+  "CUDAExecutionProvider",
+  "CPUExecutionProvider"
+ ],
+ "torch_version": "2.7.1+cu126",
+ "parity_images": 20,
+ "max_abs_diff_onnx_vs_torch_fp32_mm": 0.21094083786010742,
+ "max_abs_diff_torch_fp16_vs_fp32_mm": 0.7766485214233398,
+ "latency": {
+  "torch_fp32": {
+   "median_ms": 18.476043500413653,
+   "p90_ms": 18.67199000043911,
+   "n": 100
+  },
+  "torch_fp16": {
+   "median_ms": 8.484983998641837,
+   "p90_ms": 8.528254999691853,
+   "n": 100
+  },
+  "onnxruntime_fp32": {
+   "median_ms": 19.010882500879234,
+   "p90_ms": 19.426730097620748,
+   "n": 100
+  }
+ },
+ "gpu": "NVIDIA L4",
+ "latency_note": "batch 1, 518x518 network input, forward only (no resize to 400x400); ORT timing includes host-to-device copy of the input and copy of the output back to the host"
+}
