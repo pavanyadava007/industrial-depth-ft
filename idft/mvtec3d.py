@@ -43,29 +43,39 @@ def fit_intrinsics(xyz: np.ndarray) -> dict[str, float]:
 
 
 def downsample_depth(z: np.ndarray, out: int) -> np.ndarray:
-    """Valid-aware area downsampling of a depth map with zeros as invalid (integer factor), else nearest."""
+    """Valid-aware area resampling of a square depth map with zeros as invalid.
+
+    An output pixel is kept only if every input pixel it covers is valid, so that depth edges are not blended
+    with holes; for integer factors this is exactly the block mean over fully valid blocks.
+    """
+    import cv2
+
     H, W = z.shape
     if H == out and W == out:
         return z.astype(np.float32)
-    if H % out == 0 and W % out == 0:
-        fh, fw = H // out, W // out
-        blk = z.reshape(out, fh, out, fw)
-        valid = blk > 0
-        cnt = valid.sum(axis=(1, 3))
-        s = np.where(valid, blk, 0).sum(axis=(1, 3))
-        # require the whole block to be valid so that depth edges are not blended with holes
-        return np.where(cnt == fh * fw, s / np.maximum(cnt, 1), 0).astype(np.float32)
-    ys = (np.arange(out) * H / out).astype(int)
-    xs = (np.arange(out) * W / out).astype(int)
-    return z[np.ix_(ys, xs)].astype(np.float32)
+    valid = (z > 0).astype(np.float32)
+    zs = cv2.resize(np.where(z > 0, z, 0).astype(np.float64), (out, out), interpolation=cv2.INTER_AREA)
+    vs = cv2.resize(valid.astype(np.float64), (out, out), interpolation=cv2.INTER_AREA)
+    return np.where(vs > 1 - 1e-6, zs / np.maximum(vs, 1e-12), 0).astype(np.float32)
+
+
+def center_square(a: np.ndarray) -> tuple[np.ndarray, int, int]:
+    """Centre crop to a square; returns the crop and the (row, column) offset."""
+    H, W = a.shape[:2]
+    s = min(H, W)
+    r0, c0 = (H - s) // 2, (W - s) // 2
+    return a[r0:r0 + s, c0:c0 + s], r0, c0
 
 
 def preprocess_sample(rgb: np.ndarray, xyz: np.ndarray, mask: np.ndarray | None, res: int = WORK_RES) -> dict:
     import cv2
 
+    orig = np.array(xyz.shape[:2])
+    xyz, _, _ = center_square(xyz)  # some categories are not square (e.g. 800x600); crop the centre square
+    rgb, _, _ = center_square(rgb)
+    if mask is not None:
+        mask, _, _ = center_square(mask)
     H, W = xyz.shape[:2]
-    if H != W:
-        raise ValueError(f"expected square samples, got {H}x{W}")
     K = fit_intrinsics(xyz)
     s = res / W
     z = np.nan_to_num(xyz[..., 2].astype(np.float32), nan=0.0, posinf=0.0, neginf=0.0)
@@ -78,7 +88,7 @@ def preprocess_sample(rgb: np.ndarray, xyz: np.ndarray, mask: np.ndarray | None,
         m = cv2.resize((mask > 0).astype(np.uint8), (res, res), interpolation=cv2.INTER_NEAREST) > 0
     # pixel-centre convention: scaling a pinhole by s maps c -> (c + 0.5) * s - 0.5
     intr = np.array([K["fx"] * s, K["fy"] * s, (K["cx"] + 0.5) * s - 0.5, (K["cy"] + 0.5) * s - 0.5], np.float32)
-    return {"rgb": rgb.astype(np.uint8), "depth": z, "defect": m, "K": intr, "orig_size": np.array([H, W]),
+    return {"rgb": rgb.astype(np.uint8), "depth": z, "defect": m, "K": intr, "orig_size": orig,
             "fit_resid": np.float32(K["resid"])}
 
 

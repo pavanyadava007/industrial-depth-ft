@@ -59,3 +59,16 @@ def test_stratified_subset_covers_categories():
 def test_split_is_fixed():
     assert set(mvtec3d.SEEN) | set(mvtec3d.HELDOUT) == set(mvtec3d.CATEGORIES)
     assert len(mvtec3d.HELDOUT) == 3 and not set(mvtec3d.SEEN) & set(mvtec3d.HELDOUT)
+
+
+def test_non_square_is_center_cropped():
+    xyz = np.concatenate([_fake_xyz(40)] * 2, axis=0)[:60]  # 60 x 40
+    d = mvtec3d.preprocess_sample(np.zeros((60, 40, 3), np.uint8), xyz, None, res=20)
+    assert d["depth"].shape == (20, 20) and list(d["orig_size"]) == [60, 40]
+
+
+def test_downsample_non_integer_factor():
+    z = np.full((6, 6), 0.5, np.float32)
+    z[0, 0] = 0
+    d = mvtec3d.downsample_depth(z, 4)
+    assert d[0, 0] == 0 and np.allclose(d[2:, 2:], 0.5)
