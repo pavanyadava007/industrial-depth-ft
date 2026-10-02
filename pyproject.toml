@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "industrial-depth-ft"
+version = "0.1.0"
+description = "Monocular depth model selection and fine-tuning on close-range industrial data (MVTec 3D-AD), measured on an NVIDIA L4"
+authors = [{ name = "Pavan Yadav Annappa", email = "pavanyadava07@gmail.com" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy<2", "opencv-python-headless", "tifffile", "torch", "transformers>=4.51", "peft"]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+include = ["idft*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = [".venv", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+ignore = ["B008", "B905", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/make_results.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
