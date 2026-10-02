@@ -33,8 +33,10 @@ echo "$(t) best config by val: $BEST"
 case $BEST in head) LR="--lr-decoder 2e-4";; lora) LR="--lr-decoder 1e-4";; *) LR="";; esac
 echo "{\"best_config_by_val\": \"$BEST\"}" > results/best_config.json
 # C: data requirement curve (seed 0 of N=all is the B run)
+# 3 seeds for the smallest N (and for N = all below); one seed for the middle points (GPU budget)
 for n in 10 50 200; do
-  for s in 0 1 2; do
+  seeds="0"; [ $n = 10 ] && seeds="0 1 2"
+  for s in $seeds; do
     run results/ft_C_n${n}_s${s}.json ft_C_n${n}_s${s} $PY scripts/train_ft.py --name C_n${n}_s${s} --experiment C --mode $BEST $LR --n-train $n --seed $s --steps $STEPS
   done
 done

@@ -18,7 +18,7 @@ BEST=$($PY -c "import json;print(json.load(open('results/best_config.json'))['be
 case $BEST in head) LR="--lr-decoder 2e-4";; lora) LR="--lr-decoder 1e-4";; *) LR="";; esac
 run results/ft_S_synth_only.json ft_S_synth_only $PY scripts/train_ft.py --name S_synth_only --experiment S --mode $BEST $LR --synth-only --synth 1000 --steps $STEPS
 run results/ft_S_synth_real_all.json ft_S_synth_real_all $PY scripts/train_ft.py --name S_synth_real_all --experiment S --mode $BEST $LR --synth 1000 --steps $STEPS
-for s in 0 1 2; do
+for s in 0; do
   run results/ft_S_synth_real50_s$s.json ft_S_synth_real50_s$s $PY scripts/train_ft.py --name S_synth_real50_s$s --experiment S --mode $BEST $LR --synth 1000 --n-train 50 --seed $s --steps $STEPS
 done
 run results/quality.json quality $PY scripts/analyse_quality.py \

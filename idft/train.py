@@ -83,7 +83,26 @@ def build_model(cfg: TrainConfig) -> torch.nn.Module:
         model.backbone = inject_adapter_in_model(lcfg, model.backbone)
     elif cfg.mode != "full":
         raise ValueError(cfg.mode)
+    fp32_head(model)
     return model
+
+
+def fp32_head(model: torch.nn.Module) -> None:
+    """Run the DPT head (3 convs + sigmoid) in fp32 even under bf16 autocast.
+
+    The metric output is sigmoid * 1 m; in bf16 (8 significant bits) values in [0.5, 1) m are quantised to
+    2^-8 m = 3.9 mm steps, which is larger than the errors being measured. The first runs of this project had
+    exactly this problem (see STATUS.md); the backbone and neck still run in bf16.
+    """
+    head = model.head
+    orig = head.forward
+
+    def forward(hidden_states, patch_height, patch_width):
+        with torch.autocast("cuda", enabled=False):
+            dt = head.conv1.weight.dtype  # fp32 when training under autocast, fp16 for a .half() model
+            return orig([h.to(dt) for h in hidden_states], patch_height, patch_width)
+
+    head.forward = forward
 
 
 def param_groups(model: torch.nn.Module, cfg: TrainConfig) -> list[dict]:

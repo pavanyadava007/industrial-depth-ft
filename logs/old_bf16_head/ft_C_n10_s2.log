@@ -1,0 +1,5 @@
+train 10 / pool 2656, val 294, test 1197
+Loading weights:   0%|          | 0/287 [00:00<?, ?it/s]Loading weights: 100%|██████████| 287/287 [00:00<00:00, 6230.44it/s]
+[C_n10_s2] step 250 loss 0.0126 val_rmse_mm 9.624 (49s)
+[C_n10_s2] step 500 loss 0.0064 val_rmse_mm 7.065 (97s)
+[C_n10_s2] step 750 loss 0.0069 val_rmse_mm 7.459 (145s)

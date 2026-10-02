@@ -88,7 +88,12 @@ def fig_data_curve():
 
 
 def fig_error_maps(keys: list[str], zs_var: str, zs_kind: str, ft_var: str):
-    fig, axes = plt.subplots(len(keys), 4, figsize=(9, 2.3 * len(keys)))
+    fig, axes = plt.subplots(len(keys), 4, figsize=(9, 2.4 * len(keys)), layout="constrained")
+    cm = {}
+    for name in ("viridis_r", "RdBu_r", "magma"):
+        c = matplotlib.colormaps[name].copy()
+        c.set_bad("#d0d0d0")
+        cm[name] = c
     for i, key in enumerate(keys):
         cat, split, dt, sid = key.split("/")
         d = mvtec3d.load(Path("data/proc") / cat / split / dt / f"{sid}.npz")
@@ -100,25 +105,25 @@ def fig_error_maps(keys: list[str], zs_var: str, zs_kind: str, ft_var: str):
         fp = np.load(pred_path(Path("data/preds"), ft_var, key)).astype(np.float64)
         lo, hi = np.percentile(gt[v], [1, 99])
         g = np.where(v, gt, np.nan)
-        axes[i, 0].imshow(g, cmap="viridis_r", vmin=lo, vmax=hi)
+        axes[i, 0].imshow(g, cmap=cm["viridis_r"], vmin=lo, vmax=hi)
         axes[i, 0].set_title(f"{cat} / {dt}: GT depth", fontsize=8)
         e1 = np.where(v, (za - gt) * 1000, np.nan)
         e2 = np.where(v, (fp - gt) * 1000, np.nan)
         lim = 10
-        axes[i, 1].imshow(e1, cmap="RdBu_r", vmin=-lim, vmax=lim)
+        axes[i, 1].imshow(e1, cmap=cm["RdBu_r"], vmin=-lim, vmax=lim)
         axes[i, 1].set_title(f"zero-shot {zs_var}, aligned\nRMSE {np.sqrt(np.nanmean(e1**2)):.1f} mm", fontsize=8)
-        im = axes[i, 2].imshow(e2, cmap="RdBu_r", vmin=-lim, vmax=lim)
+        im = axes[i, 2].imshow(e2, cmap=cm["RdBu_r"], vmin=-lim, vmax=lim)
         axes[i, 2].set_title(f"fine-tuned, raw metric\nRMSE {np.sqrt(np.nanmean(e2**2)):.1f} mm", fontsize=8)
         m = d["defect"]
-        axes[i, 3].imshow(np.where(v, np.abs(e2), np.nan), cmap="magma", vmin=0, vmax=lim)
+        axes[i, 3].imshow(np.where(v, np.abs(e2), np.nan), cmap=cm["magma"], vmin=0, vmax=lim)
         if m.any():
             axes[i, 3].contour(m, levels=[0.5], colors=[AQUA], linewidths=1)
         axes[i, 3].set_title("fine-tuned |error| mm,\ndefect mask outlined", fontsize=8)
         for a in axes[i]:
             a.set_xticks([])
             a.set_yticks([])
-    fig.colorbar(im, ax=axes[:, 1:3], shrink=0.6, label="error mm (pred - GT)")
-    fig.text(0.01, 0.005, "Derived from MVTec 3D-AD (c) MVTec Software GmbH, CC BY-NC-SA 4.0. Grey = no GT.",
+    fig.colorbar(im, ax=axes[:, 2], shrink=0.5, label="error mm (pred - GT)")
+    fig.text(0.01, -0.01, "Derived from MVTec 3D-AD (c) MVTec Software GmbH, CC BY-NC-SA 4.0. Grey = no GT.",
              fontsize=7, color=GREY)
     fig.savefig(OUT / "error_maps.png", dpi=100, bbox_inches="tight")
 

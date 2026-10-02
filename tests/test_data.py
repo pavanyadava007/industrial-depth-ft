@@ -72,3 +72,19 @@ def test_downsample_non_integer_factor():
     z[0, 0] = 0
     d = mvtec3d.downsample_depth(z, 4)
     assert d[0, 0] == 0 and np.allclose(d[2:, 2:], 0.5)
+
+
+def test_head_output_not_quantised_under_bf16():
+    import torch
+
+    from idft.train import TrainConfig, build_model, forward_depth
+
+    if not torch.cuda.is_available():
+        pytest.skip("needs CUDA")
+    m = build_model(TrainConfig(name="t", mode="head")).cuda().eval()
+    rgb = torch.randint(0, 255, (1, 64, 64, 3), dtype=torch.uint8).cuda()
+    with torch.no_grad(), torch.autocast("cuda", dtype=torch.bfloat16):
+        d = forward_depth(m, rgb, (64, 64))
+    assert d.dtype == torch.float32
+    # bf16 would allow at most a handful of distinct values in [0.5, 1) m for such a smooth output
+    assert torch.unique(d).numel() > 50

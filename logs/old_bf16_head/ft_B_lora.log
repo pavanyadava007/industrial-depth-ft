@@ -1,0 +1,16 @@
+train 2656 / pool 2656, val 294, test 1197
+Loading weights:   0%|          | 0/287 [00:00<?, ?it/s]Loading weights: 100%|██████████| 287/287 [00:00<00:00, 6745.86it/s]
+[B_lora] step 250 loss 0.0135 val_rmse_mm 6.509 (47s)
+[B_lora] step 500 loss 0.0072 val_rmse_mm 6.133 (93s)
+[B_lora] step 750 loss 0.0089 val_rmse_mm 6.215 (139s)
+[B_lora] step 1000 loss 0.0070 val_rmse_mm 3.638 (185s)
+[B_lora] step 1250 loss 0.0059 val_rmse_mm 3.296 (231s)
+[B_lora] step 1500 loss 0.0072 val_rmse_mm 5.105 (277s)
+[B_lora] step 1750 loss 0.0054 val_rmse_mm 2.564 (322s)
+[B_lora] step 2000 loss 0.0045 val_rmse_mm 2.916 (368s)
+[B_lora] step 2250 loss 0.0043 val_rmse_mm 2.250 (414s)
+[B_lora] step 2500 loss 0.0037 val_rmse_mm 2.171 (460s)
+[B_lora] step 2750 loss 0.0035 val_rmse_mm 2.007 (505s)
+[B_lora] step 3000 loss 0.0036 val_rmse_mm 2.005 (551s)
+B_lora {"raw": {"abs_rel": 0.0029, "rmse_mm": 2.1119, "mae_mm": 1.6752, "d1": 1.0, "d_1.01": 0.9818, "d_1.005": 0.8397}, "aligned": {"abs_rel": 0.0024, "rmse_mm": 1.7852, "mae_mm": 1.4011, "d1": 1.0, "d_1.01": 0.9937, "d_1.005": 0.9053}}
+val best 2.004984995907768 at 3000 train_s 551 mean test rmse 2.1119267182381996
