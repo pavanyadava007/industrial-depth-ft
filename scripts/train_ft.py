@@ -30,13 +30,18 @@ def main() -> None:
     ap.add_argument("--save-preds", action="store_true")
     ap.add_argument("--save-ckpt", action="store_true")
     ap.add_argument("--data", type=Path, default=Path("data/proc"))
+    ap.add_argument("--synth", type=int, default=0, help="number of synthetic training images to add (data/synth)")
+    ap.add_argument("--synth-only", action="store_true", help="train on synthetic images only")
     a = ap.parse_args()
     cats = mvtec3d.SEEN if a.split == "seen" else mvtec3d.CATEGORIES
     cfg = TrainConfig(name=a.name, mode=a.mode, steps=a.steps, batch=a.batch, seed=a.seed, n_train=a.n_train,
                       lr_decoder=a.lr_decoder, lr_encoder=a.lr_encoder, train_categories=list(cats))
     allsamples = mvtec3d.index(a.data)
     pool = mvtec3d.select(allsamples, categories=cats, splits=["train"])
-    tr = stratified_subset(pool, a.n_train, a.seed)
+    tr = [] if a.synth_only else stratified_subset(pool, a.n_train, a.seed)
+    if a.synth:
+        syn = mvtec3d.select(mvtec3d.index(Path("data/synth")), splits=["train"])[: a.synth]
+        tr = tr + syn
     va = mvtec3d.select(allsamples, categories=cats, splits=["validation"])
     te = mvtec3d.select(allsamples, splits=["test"])
     print(f"train {len(tr)} / pool {len(pool)}, val {len(va)}, test {len(te)}", flush=True)
@@ -52,7 +57,8 @@ def main() -> None:
         rows.append(r)
         if a.save_preds:
             save_pred(Path("data/preds"), a.name, s.key, p)
-    res = {"experiment": a.experiment, "variant": a.name, "train_split": a.split,
+    res = {"experiment": a.experiment, "variant": a.name, "train_split": a.split, "n_synth": a.synth,
+           "synth_only": a.synth_only,
            "train_keys": [s.key for s in tr] if len(tr) <= 200 else f"{len(tr)} images (all of {a.split})",
            **info, **aggregate(rows), "per_image": rows}
     if a.split == "seen":

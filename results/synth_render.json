@@ -1,0 +1,8 @@
+{
+ "n_train": 1000,
+ "n_val": 100,
+ "seconds": 63.258434534072876,
+ "valid_frac_mean": 1.0,
+ "depth_min_median_m": 0.5963312387466431,
+ "depth_max_median_m": 0.6199227273464203
+}

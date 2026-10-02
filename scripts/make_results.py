@@ -230,6 +230,34 @@ def table_d_cat() -> str:
                   "seen-only aligned RMSE mm", "in-domain aligned RMSE mm"], rows)
 
 
+def table_s() -> str:
+    best = best_cfg()
+    rows = []
+    synth = load("synth_render.json")
+
+    def line(label, runs):
+        if not runs:
+            rows.append([label, "not run", "", "", "", ""])
+            return
+        rows.append([label, str(len(runs)), pm([r["raw"]["rmse_mm"] for r in runs]),
+                     pm([r["raw"]["abs_rel"] for r in runs], 4), pm([r["aligned"]["rmse_mm"] for r in runs]),
+                     pm([r["best_val_rmse_mm"] for r in runs])])
+
+    line("synthetic only (1000 rendered images)", [r for r in [ft("S_synth_only")] if r])
+    line("real only, 50 images", c_runs("50"))
+    line("synthetic 1000 + real 50", [r for r in (ft(f"S_synth_real50_s{s}") for s in (0, 1, 2)) if r])
+    line("real only, all images", [r for r in [ft(f"B_{best}")] if r])
+    line("synthetic 1000 + real all", [r for r in [ft("S_synth_real_all")] if r])
+    t = table(["training data", "seeds", "test raw RMSE mm", "test raw AbsRel", "test aligned RMSE mm",
+               "val RMSE mm (real validation split)"], rows)
+    if synth:
+        t += (f"\n\nSynthetic set: {synth['n_train']} training + {synth['n_val']} validation images rendered in "
+              f"{f(synth['seconds'] / 60, 1)} min (pyrender, EGL, NVIDIA L4), median depth range per image "
+              f"{f(synth['depth_min_median_m'], 3)} - {f(synth['depth_max_median_m'], 3)} m. All runs use the "
+              f"configuration selected in B and are selected on the real validation split.")
+    return t
+
+
 # ---------------------------------------------------------------- E
 def table_e() -> tuple[str, str, str]:
     q = load("quality.json")
@@ -258,7 +286,7 @@ def table_e() -> tuple[str, str, str]:
     td = table(["model", "mode", "MAE mm inside defect", "MAE mm in ring around defect", "share of images defect > ring",
                 "median corr. of local relief (pred vs GT) in defect", "median relief amplitude ratio pred / GT",
                 "images"], rows_d)
-    td += (f"\n\nGround-truth local relief inside the defect masks (mean |depth - 15 px median filter|): median "
+    td += (f"\n\nGround-truth local relief inside the defect masks (mean |depth - 15 x 15 px box mean|): median "
            f"{f(g['median'], 2)} mm, p10 {f(g['p10'], 2)} mm, p90 {f(g['p90'], 2)} mm over {g['n']} defective test images.")
     return th, te, td
 
@@ -322,10 +350,10 @@ def replace_block(path: Path, tag: str, content: str) -> None:
     if not path.exists():
         return
     s = path.read_text()
-    pat = re.compile(rf"(<!-- {tag}:BEGIN[^>]*-->\n).*?(\n<!-- {tag}:END -->)", re.S)
+    pat = re.compile(rf"(<!-- {tag}:BEGIN[^>]*-->\n).*?(<!-- {tag}:END -->)", re.S)
     if not pat.search(s):
         return
-    s = pat.sub(lambda m: m.group(1) + content + m.group(2), s)
+    s = pat.sub(lambda m: m.group(1) + content + "\n" + m.group(2), s)
     path.write_text(s)
 
 
@@ -336,7 +364,7 @@ def main() -> None:
         "DATA": data_table(), "LICENCE": table_licence(zs), "A_MAIN": table_a_main(zs),
         "A_CAT_ALIGNED": table_a_cat(zs, "aligned"), "A_CAT_RAW": table_a_cat(zs, "raw"), "B": table_b(),
         "BEST": f"Configuration selected by validation RMSE: **{best_cfg()}**.", "C": table_c(), "D": table_d(zs),
-        "D_CAT": table_d_cat(), "E_HEIGHT": th, "E_EDGE": te, "E_DEFECT": td, "F": table_f(),
+        "D_CAT": table_d_cat(), "S": table_s(), "E_HEIGHT": th, "E_EDGE": te, "E_DEFECT": td, "F": table_f(),
         "RUNTIME": table_runtime(), "HEADLINE": headline(zs),
     }
     for p in (Path("README.md"), Path("docs/RESULTS.md"), Path("STATUS.md")):

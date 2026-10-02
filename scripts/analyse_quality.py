@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from scipy.ndimage import binary_dilation, median_filter
+from scipy.ndimage import binary_dilation
 
 from idft import mvtec3d
 from idft.evaluate import pred_path
@@ -21,9 +21,13 @@ HEIGHT_EDGES_MM = [0, 5, 15, 30, 60, 1000]  # height above the deepest valid poi
 
 
 def relief(z: np.ndarray, valid: np.ndarray, size: int = 15) -> np.ndarray:
-    """Local depth relief: depth minus a median-filtered version (holes filled with the image median)."""
-    zz = np.where(valid, z, np.median(z[valid]))
-    return z - median_filter(zz, size=size)
+    """Local depth relief: depth minus the mean depth of the valid pixels in a size x size box around it."""
+    import cv2
+
+    v = valid.astype(np.float64)
+    num = cv2.blur(np.where(valid, z, 0.0), (size, size))
+    den = cv2.blur(v, (size, size))
+    return np.where(valid, z - num / np.maximum(den, 1e-9), 0.0)
 
 
 def main() -> None:
